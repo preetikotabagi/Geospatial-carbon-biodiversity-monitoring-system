@@ -56,6 +56,19 @@ def _get_owned_site(db: Session, site_id: int, current_user: User) -> Site:
     return site
 
 
+def _as_int(value) -> int:
+    """
+    Coerce a stored metric to the int that SiteAnalyticsOut declares.
+
+    The columns are declared Integer, but a table that predates the model
+    (create_all never alters existing tables) can hold NUMERIC/FLOAT or NULL
+    values. Pydantic rejects e.g. 72.5 or None for an int field, and because
+    that happens while validating the response it surfaces as an opaque
+    HTTP 500 rather than a 4xx.
+    """
+    return int(round(value)) if value is not None else 0
+
+
 @router.post("/", response_model=SiteCreateOut, status_code=status.HTTP_201_CREATED)
 def create_site(
     site_data: SiteCreate,
@@ -272,9 +285,13 @@ def get_site_analytics(
 
     # Area is computed in PostGIS: transform to an equal-area projection
     # (EPSG:6933) before measuring, since ST_Area on raw EPSG:4326 degrees
-    # is not a meaningful area unit.
+    # is not a meaningful area unit. ST_SetSRID pins the source SRID to the
+    # documented 4326: ST_Transform raises (-> HTTP 500) on any row whose
+    # geometry was stored with an unknown SRID (0).
     area = db.query(
-        func.ST_Area(func.ST_Transform(Site.geometry, 6933))
+        func.ST_Area(
+            func.ST_Transform(func.ST_SetSRID(Site.geometry, 4326), 6933)
+        )
     ).filter(Site.id == site.id).scalar()
 
     area_hectares = round((area or 0) / 10000, 2)
@@ -290,16 +307,16 @@ def get_site_analytics(
         },
         "area_hectares": area_hectares,
         "current": {
-            "carbon_tco2e": latest_metric.carbon_tco2e if latest_metric else 0,
-            "biodiversity_score": (
+            "carbon_tco2e": _as_int(latest_metric.carbon_tco2e if latest_metric else 0),
+            "biodiversity_score": _as_int(
                 latest_metric.biodiversity_score if latest_metric else 0
             ),
         },
         "history": [
             {
                 "year": metric.year,
-                "carbon_tco2e": metric.carbon_tco2e,
-                "biodiversity_score": metric.biodiversity_score,
+                "carbon_tco2e": _as_int(metric.carbon_tco2e),
+                "biodiversity_score": _as_int(metric.biodiversity_score),
             }
             for metric in metrics
         ],
