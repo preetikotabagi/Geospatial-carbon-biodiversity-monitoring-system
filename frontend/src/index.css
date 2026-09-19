@@ -1,0 +1,122 @@
+:root {
+  /* Palette -- deep forest green as the primary brand color, a muted sky
+     blue as the secondary/accent (biodiversity), warm amber reserved for
+     "selected" states, and a soft off-white/paper background so large
+     white cards don't disappear into the page. */
+  --color-bg: #f2f6f3;
+  --color-bg-alt: #eaf2ec;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f6f9f7;
+  --color-border: #dee6e1;
+  --color-border-strong: #c7d4cd;
+
+  --color-text: #16211b;
+  --color-text-muted: #57685e;
+  --color-text-faint: #7c8b81;
+
+  --color-primary: #1f7a4c;
+  --color-primary-dark: #145235;
+  --color-primary-darker: #0e3d27;
+  --color-primary-light: #e6f4ec;
+  --color-primary-lighter: #f2faf5;
+
+  --color-accent: #2f6f9e;
+  --color-accent-dark: #21506f;
+  --color-accent-light: #e7f1f9;
+
+  --color-warning: #b9791c;
+  --color-warning-light: #fbf0dd;
+
+  --color-danger: #b3261e;
+  --color-danger-dark: #8c1e18;
+  --color-danger-light: #fbe9e7;
+
+  --shadow-sm: 0 1px 2px rgba(15, 30, 22, 0.06);
+  --shadow-md: 0 6px 20px rgba(15, 30, 22, 0.08);
+  --shadow-lg: 0 16px 40px rgba(15, 30, 22, 0.14);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Type scale -- comfortably readable on a laptop screen, per product
+     requirements. Everything here is deliberately a step or two larger
+     than a "default" admin-panel scale. */
+  --text-xs: 0.85rem;
+  --text-sm: 0.95rem;
+  --text-base: 1.05rem;
+  --text-md: 1.2rem;
+  --text-lg: 1.45rem;
+  --text-xl: 1.9rem;
+  --text-2xl: 2.4rem;
+
+  font-family: var(--font-sans);
+  color-scheme: light;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  font-size: var(--text-base);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--color-text);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: var(--text-base);
+}
+
+a {
+  color: var(--color-primary);
+}
+
+::selection {
+  background: var(--color-primary-light);
+}
+
+/* Slightly larger, calmer scrollbars so the map/analytics panel doesn't
+   feel like a cramped browser default. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+}
