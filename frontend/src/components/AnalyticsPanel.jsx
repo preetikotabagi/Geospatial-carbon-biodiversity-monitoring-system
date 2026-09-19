@@ -174,13 +174,7 @@ function AddMetricForm({ siteId, history = [], onAddMetric }) {
   );
 }
 
-function AnalyticsPanel({ site, loading, onClose, onAddMetric, onUpdateMetric }) {
-  const [editingYear, setEditingYear] = useState(null);
-  const [editCarbon, setEditCarbon] = useState("");
-  const [editBiodiversity, setEditBiodiversity] = useState("");
-  const [editError, setEditError] = useState("");
-  const [editSaving, setEditSaving] = useState(false);
-
+function AnalyticsPanel({ site, loading, error, onClose, onAddMetric }) {
   if (loading) {
     return (
       <div className="analytics-panel">
@@ -192,59 +186,32 @@ function AnalyticsPanel({ site, loading, onClose, onAddMetric, onUpdateMetric })
     );
   }
 
+  if (error && !site && !loading) {
+    return (
+      <div className="analytics-panel analytics-error-panel">
+        <div className="analytics-header">
+          <div>
+            <h2>Analytics unavailable</h2>
+            <p className="site-desc">The selected site could not be loaded.</p>
+          </div>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onClose}
+            aria-label="Close analytics panel"
+          >
+            &times;
+          </button>
+        </div>
+        <div className="alert alert-error">{error}</div>
+        <p className="hint-text">The map and site data are still available. You can select another site or try again after checking the API connection.</p>
+      </div>
+    );
+  }
+
   if (!site) return null;
 
   const hasHistory = Boolean(site.history && site.history.length > 0);
-
-  const startEditing = (metric) => {
-    setEditingYear(metric.year);
-    setEditCarbon(String(metric.carbon_tco2e));
-    setEditBiodiversity(String(metric.biodiversity_score));
-    setEditError("");
-  };
-
-  const cancelEditing = () => {
-    setEditingYear(null);
-    setEditCarbon("");
-    setEditBiodiversity("");
-    setEditError("");
-  };
-
-  const saveEditedMetric = async (e) => {
-    e.preventDefault();
-    setEditError("");
-
-    const carbonNum = Number(editCarbon);
-    const bioNum = Number(editBiodiversity);
-
-    if (editCarbon === "" || Number.isNaN(carbonNum) || carbonNum < 0) {
-      setEditError("Enter a valid carbon value (tCO₂e).");
-      return;
-    }
-
-    if (
-      editBiodiversity === "" ||
-      Number.isNaN(bioNum) ||
-      bioNum < 0 ||
-      bioNum > 100
-    ) {
-      setEditError("Enter a biodiversity score between 0 and 100.");
-      return;
-    }
-
-    setEditSaving(true);
-    try {
-      await onUpdateMetric(site.site.id, editingYear, {
-        carbon_tco2e: carbonNum,
-        biodiversity_score: bioNum,
-      });
-      cancelEditing();
-    } catch (err) {
-      setEditError(err.response?.data?.detail || "Failed to update this year's metrics.");
-    } finally {
-      setEditSaving(false);
-    }
-  };
 
   const carbonChartData = {
     labels: (site.history || []).map((item) => item.year),
@@ -314,7 +281,7 @@ function AnalyticsPanel({ site, loading, onClose, onAddMetric, onUpdateMetric })
       </div>
 
       {hasHistory ? (
-        <div className="chart-grid">
+        <>
           <div className="chart-block">
             <div className="chart-block-header">
               <h4>Carbon Performance Over Time</h4>
@@ -334,92 +301,13 @@ function AnalyticsPanel({ site, loading, onClose, onAddMetric, onUpdateMetric })
               <Line data={biodiversityChartData} options={chartOptions("Score")} />
             </div>
           </div>
-        </div>
+        </>
       ) : (
         <div className="empty-state empty-state-panel">
           No historical metrics recorded for this site yet. Add one below to see it plotted on
           the performance charts.
         </div>
       )}
-
-      <div className="metric-history-section">
-        <div className="metric-history-header">
-          <div>
-            <h4>Yearly Metrics</h4>
-            <p>Edit an existing year or add a new year's values below.</p>
-          </div>
-        </div>
-
-        {hasHistory ? (
-          <div className="metric-history-list">
-            {site.history.map((metric) => (
-              <div className="metric-history-row" key={metric.year}>
-                {editingYear === metric.year ? (
-                  <form className="metric-history-edit" onSubmit={saveEditedMetric}>
-                    <div className="metric-history-year">{metric.year}</div>
-                    <div className="field">
-                      <label htmlFor={`edit-carbon-${metric.year}`}>Carbon (tCO₂e)</label>
-                      <input
-                        id={`edit-carbon-${metric.year}`}
-                        type="number"
-                        min="0"
-                        value={editCarbon}
-                        onChange={(e) => setEditCarbon(e.target.value)}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor={`edit-bio-${metric.year}`}>Biodiversity (0-100)</label>
-                      <input
-                        id={`edit-bio-${metric.year}`}
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={editBiodiversity}
-                        onChange={(e) => setEditBiodiversity(e.target.value)}
-                      />
-                    </div>
-                    <div className="metric-history-actions">
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={cancelEditing}
-                        disabled={editSaving}
-                      >
-                        Cancel
-                      </button>
-                      <button type="submit" className="btn btn-primary" disabled={editSaving}>
-                        {editSaving ? "Saving..." : "Save changes"}
-                      </button>
-                    </div>
-                    {editError && <div className="alert alert-error metric-edit-error">{editError}</div>}
-                  </form>
-                ) : (
-                  <>
-                    <div className="metric-history-year">{metric.year}</div>
-                    <div className="metric-history-value">
-                      <span>Carbon</span>
-                      <strong>{metric.carbon_tco2e} tCO₂e</strong>
-                    </div>
-                    <div className="metric-history-value">
-                      <span>Biodiversity</span>
-                      <strong>{metric.biodiversity_score} / 100</strong>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-secondary metric-edit-button"
-                      onClick={() => startEditing(metric)}
-                    >
-                      Edit
-                    </button>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state metric-history-empty">No yearly metrics recorded yet.</div>
-        )}
-      </div>
 
       <div className="metric-form-wrapper">
         <p className="hint-text metric-form-hint">

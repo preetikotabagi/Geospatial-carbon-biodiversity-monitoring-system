@@ -10,7 +10,6 @@ import {
   createSite as apiCreateSite,
   getSiteAnalytics,
   addSiteMetric as apiAddSiteMetric,
-  updateSiteMetric as apiUpdateSiteMetric,
 } from "../api/endpoints";
 
 import SummaryCards from "../components/SummaryCards";
@@ -24,6 +23,8 @@ function Dashboard() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const mapRef = useRef(null);
+  const mapSectionRef = useRef(null);
+  const analyticsPanelRef = useRef(null);
 
   const [projects, setProjects] = useState([]);
   const [sites, setSites] = useState([]);
@@ -35,6 +36,7 @@ function Dashboard() {
 
   const [selectedSiteId, setSelectedSiteId] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -121,9 +123,35 @@ function Dashboard() {
 
   const selectedSiteAnalytics = selectedSiteId ? analyticsById[selectedSiteId] : null;
 
+  // When a project has no sites, bring the user directly to the map/site
+  // section instead of leaving the empty state somewhere below the fold.
+  useEffect(() => {
+    if (!selectedProjectId || filteredSites.length > 0) return;
+
+    const timer = window.setTimeout(() => {
+      mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedProjectId, filteredSites.length]);
+
+  // On smaller screens the analytics panel is below the map. Scroll it into
+  // view after a site is selected so the charts are immediately visible.
+  useEffect(() => {
+    if (!selectedSiteId) return;
+
+    const timer = window.setTimeout(() => {
+      analyticsPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedSiteId]);
+
   // ---- Handlers -----------------------------------------------------------
   const handleSelectProject = (projectId) => {
     setSelectedProjectId(projectId);
+    setAnalyticsError("");
+
     // If the currently-open site analytics belong to a site outside the
     // newly selected project, close the panel so we never show stale data.
     if (selectedSiteId) {
@@ -190,12 +218,20 @@ function Dashboard() {
 
   const handleSiteClick = useCallback(
     async (siteId) => {
-      setSelectedSiteId(siteId);
-      if (!analyticsById[siteId]) {
+      const normalizedSiteId = Number(siteId);
+      setSelectedSiteId(normalizedSiteId);
+      setAnalyticsError("");
+
+      if (!analyticsById[normalizedSiteId]) {
         setAnalyticsLoading(true);
         try {
-          const analytics = await getSiteAnalytics(siteId);
-          setAnalyticsById((prev) => ({ ...prev, [siteId]: analytics }));
+          const analytics = await getSiteAnalytics(normalizedSiteId);
+          setAnalyticsById((prev) => ({ ...prev, [normalizedSiteId]: analytics }));
+        } catch (err) {
+          setAnalyticsError(
+            err.response?.data?.detail ||
+              "Unable to load analytics for this site. Please try again."
+          );
         } finally {
           setAnalyticsLoading(false);
         }
@@ -224,32 +260,6 @@ function Dashboard() {
           current: {
             carbon_tco2e: latest.carbon_tco2e,
             biodiversity_score: latest.biodiversity_score,
-          },
-        },
-      };
-    });
-  }, []);
-
-  const handleUpdateMetric = useCallback(async (siteId, year, metricPayload) => {
-    const updated = await apiUpdateSiteMetric(siteId, year, metricPayload);
-
-    setAnalyticsById((prev) => {
-      const existing = prev[siteId];
-      if (!existing) return prev;
-
-      const nextHistory = existing.history
-        .map((metric) => (metric.year === updated.year ? updated : metric))
-        .sort((a, b) => a.year - b.year);
-      const latest = nextHistory[nextHistory.length - 1];
-
-      return {
-        ...prev,
-        [siteId]: {
-          ...existing,
-          history: nextHistory,
-          current: {
-            carbon_tco2e: latest?.carbon_tco2e ?? 0,
-            biodiversity_score: latest?.biodiversity_score ?? 0,
           },
         },
       };
@@ -309,7 +319,7 @@ function Dashboard() {
           />
         </div>
 
-        <div className="card map-analytics-row">
+        <div ref={mapSectionRef} className="card map-analytics-row">
           <div className="map-section">
             <div className="map-hint-overlay">
               <strong>How to add a site</strong>
@@ -319,16 +329,6 @@ function Dashboard() {
               <span>Click a shaded site anytime to view its analytics.</span>
             </div>
 
-            {filteredSites.length === 0 && (
-              <div className="map-empty-overlay">
-                <p>
-                  {selectedProject
-                    ? `No sites in "${selectedProject.name}" yet. Draw a polygon to add the first one.`
-                    : "No sites yet. Draw a polygon on the map to create your first site."}
-                </p>
-              </div>
-            )}
-
             <MapView
               ref={mapRef}
               sites={filteredSites}
@@ -337,16 +337,35 @@ function Dashboard() {
               onGeometryCreate={setDrawnGeometry}
               onGeometryDelete={() => setDrawnGeometry(null)}
             />
+
+            {filteredSites.length === 0 && (
+              <div className="site-empty-state">
+                <div className="site-empty-icon" aria-hidden="true">⌖</div>
+                <div>
+                  <h3>{selectedProject ? "No sites found" : "No sites yet"}</h3>
+                  <p>
+                    {selectedProject
+                      ? `There are no sites in "${selectedProject.name}" yet. Draw a polygon on the map above and save the site details to add one.`
+                      : "No monitoring sites have been added yet. Select a project, draw a polygon on the map, and save the site details to create your first site."}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {selectedSiteId && (
-            <AnalyticsPanel
-              site={selectedSiteAnalytics}
-              loading={analyticsLoading && !selectedSiteAnalytics}
-              onClose={() => setSelectedSiteId(null)}
-              onAddMetric={handleAddMetric}
-              onUpdateMetric={handleUpdateMetric}
-            />
+            <div ref={analyticsPanelRef}>
+              <AnalyticsPanel
+                site={selectedSiteAnalytics}
+                loading={analyticsLoading && !selectedSiteAnalytics}
+                error={analyticsError}
+                onClose={() => {
+                  setSelectedSiteId(null);
+                  setAnalyticsError("");
+                }}
+                onAddMetric={handleAddMetric}
+              />
+            </div>
           )}
         </div>
       </main>

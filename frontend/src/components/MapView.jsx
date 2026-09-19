@@ -71,6 +71,7 @@ const MapView = forwardRef(function MapView(
       style: "mapbox://styles/mapbox/light-v11",
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
+      scrollZoom: false,
     });
 
     mapRef.current = map;
