@@ -116,25 +116,3 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     access_token = create_access_token(user.id)
 
     return TokenResponse(access_token=access_token)
-
-@router.get("/debug-user")
-def debug_user(db: Session = Depends(get_db)):
-    user = (
-        db.query(User)
-        .filter(User.email == "demo1@darukaa.earth")
-        .first()
-    )
-
-    if not user:
-        return {"found": False}
-
-    return {
-        "found": True,
-        "email": user.email,
-        "user_id": user.id,
-        "hash_prefix": user.password_hash[:4],
-        "password_matches": bcrypt.checkpw(
-            b"Demo@123",
-            user.password_hash.encode("utf-8"),
-        ),
-    }
